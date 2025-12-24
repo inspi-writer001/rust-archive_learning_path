@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package calculator;
+
+service Calculator {
+    rpc Add(CalculationRequest) returns (CalculationResponse);
+    rpc SayAge(CalculationRequest) returns (HelloResponse);
+}
+
+message CalculationRequest {
+    int64 a = 1;
+    int64 b = 2;
+}
+
+message CalculationResponse {
+  int64 result = 1;
+}
+
+message HelloResponse {
+    string response = 1;
+}
+
+service Admin {
+  rpc GetCount(GetCountRequest) returns (GetCountResponse);
+}
+
+message GetCountRequest { }
+message GetCountResponse { int64 count = 1;}
