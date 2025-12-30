@@ -291,3 +291,127 @@ mod test {
         println!("{:?}", new_flash.max());
     }
 }
+
+#[macro_export]
+macro_rules! expand_vector {
+    () => {
+        Vec::new()
+    };
+    ($($val:expr),+ $(,)?) => {
+        {
+            let mut new_vec = Vec::new();
+
+            $(new_vec.push($val);)*
+            new_vec
+        }
+    };
+    ($val:expr; $count:literal) => {
+        {
+            let mut new_vec = Vec::with_capacity($count);
+            new_vec.resize($count, $val);
+            new_vec
+        }
+    }
+}
+
+// #[repr(C)]
+// #[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, Debug)]
+// pub struct Wtf {
+//     pub amount: [u8; 8],
+
+//     pub address: [u8; 32],
+// }
+
+// impl Wtf {
+//     pub const SIZE: usize = core::mem::size_of::<Self>();
+
+//     pub fn fetch_address(&self) -> &[u8; 32] {
+//         &self.address
+//     }
+
+//     pub fn size(&self) -> usize {
+//         core::mem::size_of::<Self>()
+//     }
+
+//     pub fn to_bytes(&self) -> &[u8; Self::SIZE] {
+//         let bytes = bytemuck::bytes_of(self);
+//         bytes.try_into().unwrap()
+//         // let mut max_size = [0u8; Self::SIZE];
+//         // max_size[..Self::SIZE].copy_from_slice(bytes);
+//         // max_size
+//     }
+// }
+
+#[macro_export]
+macro_rules! third_mojo {
+    ($visibility:vis struct $struct_name:ident {$($token_visibility:vis $token_name:ident : $struct_tokens:ty),* $(,)?}) => {
+        #[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, Debug, PartialEq)]
+        #[repr(C)]
+        $visibility struct $struct_name {
+            // $($struct_tokens)*,
+            $($token_visibility $token_name: $struct_tokens),*
+        }
+
+       paste::paste!{
+        impl $struct_name {
+             pub const SIZE: usize = core::mem::size_of::<Self>();
+
+            // pub fn fetch_address(&self) -> &[u8; 32] {
+            //     &self.address
+            // }
+
+        //    $( pub fn [<fetch_ $token_name>](&self) -> $struct_tokens {
+        //         &self.$token_name
+        //     })*
+
+            pub fn size(&self) -> usize {
+                Self::SIZE
+            }
+
+            pub fn to_bytes(&self) -> &[u8; Self::SIZE] {
+                let bytes = bytemuck::bytes_of(self);
+                bytes.try_into().unwrap()
+
+            }
+
+            $(
+                 pub fn [ < fetch_ $token_name > ](&self) -> &$struct_tokens {
+                        &self.$token_name
+                    }
+                )*
+        }}
+    };
+}
+
+#[cfg(test)]
+mod tpest {
+    third_mojo! { pub struct Wtf {
+        pub amount: [u8; 8],
+        pub address: [u8; 32],
+    }}
+
+    #[test]
+    fn test_expand() {
+        let first_vector: Vec<u8> = expand_vector!();
+
+        let second_vector = expand_vector![2; 10];
+
+        let third_vector = expand_vector![2, 4, 6, 7, 6, 8];
+
+        let new_guy = Wtf {
+            address: [3u8; 32],
+            amount: {
+                let value: u64 = 30_000_000;
+                value.to_le_bytes()
+            },
+        };
+
+        println!("new guy bytes: {:?}", new_guy.to_bytes());
+        // println!("new guy address: {:?}", new_guy.fetch_address());
+        println!("new guy size: {:?}", new_guy.size());
+        println!("new guy fetch_address {:?}", new_guy.fetch_address());
+        println!("new guy fetch_amount {:?}", new_guy.fetch_amount());
+
+        println!("{:?} {:?} {:?}", first_vector, second_vector, third_vector);
+    }
+}
