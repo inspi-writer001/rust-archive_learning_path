@@ -125,6 +125,51 @@ mod test_pef {
     }
 
     #[test]
+    fn init_pef_mutable_borrow() {
+        // 1. Use 'let' to create ONE single instance we all share
+        let pef_cell = PefCell::new(Person {
+            first_name: "Paul",
+            age: 12,
+        });
+
+        // 2. Create 3 shared borrows
+        let b1 = pef_cell.borrow();
+        let b2 = pef_cell.borrow();
+        let b3 = pef_cell.borrow();
+
+        // Check state: Shared(3)
+        assert_eq!(pef_cell.state.get(), PefState::Shared(3));
+        println!("Currently shared by 3");
+
+        // 3. Drop ALL shared borrows so we can eventually mutate
+        drop(b1); // prints "dropping state from 3"
+        drop(b2); // prints "dropping state from 2"
+        drop(b3); // prints "dropping state from 1"
+
+        // State is now Unshared. We are ready to mutate.
+
+        // 4. Now we can borrow_mut successfully
+        println!("Attempting mutable borrow...");
+        if let Some(mut mut_value) = pef_cell.borrow_mut() {
+            // State becomes Exclusive
+            mut_value.first_name = "Stephen";
+            println!("Mutated name to Stephen, {:?}", mut_value.first_name);
+
+            // Explicitly drop here to trigger your Drop impl
+            drop(mut_value);
+            // THIS will now print: "dropping mutable state"
+        } else {
+            panic!("Could not borrow_mut! (Did you forget to drop a shared ref?)");
+        }
+
+        // 5. Verify the data changed
+        // We take a new shared borrow to check the value
+        let final_check = pef_cell.borrow().unwrap();
+        println!("Final person name is {:?}", final_check.first_name);
+        assert_eq!(final_check.first_name, "Stephen");
+    }
+
+    #[test]
     fn init_pef() {
         const SOME_AMAZING_VALUE: PefCell<Person<'_>> = PefCell::new(Person {
             first_name: "Paul",
@@ -145,10 +190,18 @@ mod test_pef {
             drop(first_borrowing); // dropping state from 3
             drop(second_borrowing); // dropping state from 2
             drop(third_borrowing); // dropping state from 1
-            let new_guy: Option<crate::pefcell::RefMut<'_, Person<'_>>> =
-                value.refcell.borrow_mut();
+
+            assert_eq!(new_borrow.state.get(), PefState::Unshared, "Drops failed");
+            let f_new_guy = SOME_AMAZING_VALUE;
+            let new_guy = f_new_guy.borrow_mut();
             if let Some(mut mut_value) = new_guy {
                 mut_value.first_name = "Stephen";
+                unsafe {
+                    println!("first name is: {:?}", *f_new_guy.value.get());
+                }
+                drop(mut_value); // would be dropped here anyways
+            } else {
+                println!("new_guy is None: here's proof");
             }
             println!("person name is {:?}", value.first_name);
         }
