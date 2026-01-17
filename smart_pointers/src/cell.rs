@@ -5,18 +5,16 @@ pub struct Cell<T> {
 }
 
 impl<T> Cell<T> {
-    pub fn new(value: T) -> Self {
+    pub const fn new(value: T) -> Self {
         Cell {
             value: UnsafeCell::new(value),
         }
     }
 
     pub fn set(&self, value: T) {
-        /// SAFETY: we know no-one else is concurrently mutating self.value (because !Sync)
-        /// SAFETY: we know we're not overriding the values of the shared reference since we're not giving any out in get();
-        unsafe {
-            *self.value.get() = value
-        };
+        // SAFETY: we know no-one else is concurrently mutating self.value (because !Sync)
+        // SAFETY: we know we're not overriding the values of the shared reference since we're not giving any out in get();
+        unsafe { *self.value.get() = value };
     }
 
     pub fn get(&self) -> T
